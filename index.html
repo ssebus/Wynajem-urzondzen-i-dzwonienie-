@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Rezerwacji Urządzeń - Wersja Stabilna</title>
+    <style>
+        :root {
+            --primary: #0071e3;
+            --primary-hover: #0077ed;
+            --bg: #f5f5f7;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --text: #1d1d1f;
+            --text-secondary: #86868b;
+            --border: #d2d2d7;
+            --danger: #ff3b30;
+            --danger-hover: #d7261e;
+            --success: #34c759;
+            --shadow: rgba(0, 0, 0, 0.05);
+            --input-bg: #ffffff;
+            --sig-bg: #fbfbfd;
+            --sig-line: #a1a1a6;
+        }
+
+        [data-theme="dark"] {
+            --bg: #000000;
+            --card-bg: rgba(28, 28, 30, 0.9);
+            --text: #f5f5f7;
+            --text-secondary: #86868b;
+            --border: #38383a;
+            --shadow: rgba(0, 0, 0, 0.6);
+            --input-bg: #1c1c1e;
+            --sig-bg: #2c2c2e;
+            --sig-line: #636366;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .theme-switch-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px var(--shadow);
+            z-index: 999;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 550px;
+            box-shadow: 0 12px 40px var(--shadow);
+            border: 1px solid var(--border);
+            box-sizing: border-box;
+        }
+
+        .admin-container { max-width: 1050px; }
+        h2 { text-align: center; margin-top: 0; font-weight: 600; font-size: 26px; }
+        h3 { font-size: 18px; margin-top: 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        h4 { margin: 20px 0 10px 0; font-size: 16px; font-weight: 600; }
+        .section { margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 25px; }
+        .section:last-of-type { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+        label { display: block; font-weight: 500; margin-bottom: 10px; font-size: 14px; }
+
+        input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="password"], select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: var(--input-bg);
+            color: var(--text);
+        }
+
+        .radio-group { display: flex; flex-direction: column; gap: 12px; }
+        .radio-label { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--input-bg); }
+
+        .device-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 10px; }
+        .device-box { 
+            border: 2px solid var(--border); 
+            border-radius: 14px; 
+            padding: 16px; 
+            text-align: center; 
+            cursor: pointer; 
+            background-color: var(--input-bg);
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .device-box .dev-name { font-weight: 600; display: block; margin-bottom: 4px; }
+        .device-box .dev-price { font-size: 12px; color: var(--text-secondary); }
+        .device-box:hover { border-color: var(--text); }
+        
+        .device-box.selected { 
+            border: 3px solid var(--primary) !important; 
+            background-color: rgba(0, 113, 227, 0.15) !important; 
+            color: var(--primary) !important;
+            transform: scale(1.02);
+        }
+        
+        .device-box.wypozyczone-skreslone {
+            border: 2px dashed var(--danger) !important;
+            background-color: rgba(255, 59, 48, 0.05) !important;
+            cursor: not-allowed !important;
+            opacity: 0.65;
+        }
+        .device-box.wypozyczone-skreslone .dev-name {
+            text-decoration: line-through;
+            color: var(--text-secondary);
+        }
+        .device-box.wypozyczone-skreslone .dev-price {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .hidden { display: none !important; }
+        .summary-box { background-color: rgba(0, 113, 227, 0.08); border-radius: 16px; padding: 20px; text-align: center; font-size: 18px; font-weight: 600; margin-top: 25px; border: 1px solid rgba(0, 113, 227, 0.15); }
+        .price-tag { color: var(--primary); font-size: 32px; display: block; margin-top: 5px; }
+
+        .canvas-container { position: relative; background-color: var(--sig-bg); border: 2px dashed var(--border); border-radius: 16px; }
+        #signature-pad { display: block; cursor: crosshair; width: 100%; height: 150px; background-color: #ffffff; border-radius: 14px; }
+        .signature-line-guide { position: absolute; bottom: 35px; left: 10%; right: 10%; height: 2px; background-color: var(--sig-line); pointer-events: none; opacity: 0.6; }
+        .signature-text-guide { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+        .clear-btn { background: none; border: none; color: var(--danger); font-size: 13px; cursor: pointer; padding: 8px 0; text-decoration: underline; }
+
+        button.btn-primary { width: 100%; background-color: var(--primary); color: white; border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button.btn-primary:hover { background-color: var(--primary-hover); }
+        
+        button.btn-danger { background-color: var(--danger); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        button.btn-danger:hover { background-color: var(--danger-hover); }
+        
+        button.btn-secondary { background-color: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        button.btn-secondary:hover { background: var(--bg); }
+
+        .toast { position: fixed; top: 20px; left: 50%; transform: translate(-50%, -100px); padding: 16px 32px; border-radius: 16px; color: white; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.2); transition: transform 0.3s; z-index: 1000; }
+        .toast.show { transform: translate(-50%, 20px); }
+        .toast.success { background-color: var(--success); }
+        .toast.error { background-color: var(--danger); }
+
+        .admin-toggle-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 12px 24px; border-radius: 30px; cursor: pointer; font-weight: 500; margin: 10px auto; display: block; }
+        .admin-grid-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 25px; }
+
+        .admin-list-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; background: var(--input-bg); font-size: 14px; }
+        .admin-list-controls { display: flex; gap: 8px; justify-content: flex-end; margin-top: 5px; }
+        .delete-btn { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        .delete-btn:hover { background: var(--danger); color: white; }
+
+        .orders-action-tile {
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.1), rgba(0, 113, 227, 0.02));
+            border: 2px dashed var(--primary);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 18px;
+            margin-top: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .orders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+            margin-bottom: 30px;
+        }
+        .order-card {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .order-card.type-rozmowa { border-left: 5px solid #34c759; }
+        .order-card.type-wynajem { border-left: 5px solid #0071e3; }
+        .order-card.type-do-zwrotu { border-left: 5px solid #ff3b30; background: rgba(255, 59, 48, 0.04); }
+        
+        .order-card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .order-card-title { font-weight: 700; font-size: 16px; }
+        .order-card-tag { font-size: 11px; padding: 4px 8px; border-radius: 20px; font-weight: 600; text-transform: uppercase; }
+        .tag-rozmowa { background: rgba(52, 199, 89, 0.15); color: #34c759; }
+        .tag-wynajem { background: rgba(0, 113, 227, 0.15); color: #0071e3; }
+        .tag-do-zwrotu { background: rgba(255, 59, 48, 0.2); color: #ff3b30; animation: blinker 1.5s linear infinite; }
+
+        @keyframes blinker { 50% { opacity: 0.4; } }
+        .order-card-body p { margin: 4px 0; font-size: 14px; }
+        .order-card-body strong { color: var(--text-secondary); font-weight: 500; }
+        .order-card-signature { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 6px; text-align: center; margin-top: 5px; min-height: 70px; display: flex; align-items: center; justify-content: center;}
+        .order-card-signature img { max-height: 65px; max-width: 100%; object-fit: contain; display: block; margin: 0 auto; }
+        .order-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; border-top: 1px solid var(--border); padding-top: 12px; }
+        .order-card-price { font-size: 18px; font-weight: 700; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<button class="theme-switch-btn" id="themeSwitchBtn">☀️</button>
+<div id="toast" class="toast"></div>
+
+<div class="container" id="userFormContainer">
+    <h2>Formularz Zamówienia</h2>
+    <form id="orderForm">
+        <div class="section">
+            <label for="fullName">Imię i Nazwisko *</label>
+            <input type="text" id="fullName" required placeholder="Jan Kowalski">
+        </div>
+
+        <div class="section">
+            <label>Wybierz rodzaj usługi:</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="serviceType" value="call" id="serviceCall" checked>
+                    <span id="labelCallPrice">Rozmowa telefoniczna</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="serviceType" value="rent" id="serviceRent">
+                    <span id="labelRentPrice">Wynajem urządzenia</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="section" id="callSection">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label for="callDate">Data rozmowy *</label>
+                    <input type="date" id="callDate">
+                </div>
+                <div>
+                    <label for="callTime">Godzina rozmowy *</label>
+                    <input type="time" id="callTime">
+                </div>
+            </div>
+            <label for="callMinutes">Czas trwania rozmowy (w minutach):</label>
+            <input type="number" id="callMinutes" value="0" min="0">
+        </div>
+
+        <div class="section hidden" id="rentSection">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label for="rentDate">Data wypożyczenia *</label>
+                    <input type="date" id="rentDate">
+                </div>
+                <div>
+                    <label for="rentTime">Godzina wydania *</label>
+                    <input type="time" id="rentTime">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label for="rentMinutes">Czas trwania użytkowania (w minutach):</label>
+                <input type="number" id="rentMinutes" value="10" min="1">
+            </div>
+
+            <label>Wybierz dostępny sprzęt dla podanego czasu: *</label>
+            <div class="device-grid" id="dynamicDeviceGrid"></div>
+        </div>
+
+        <div class="section">
+            <label>Podpis klienta (wymagany) *</label>
+            <div class="canvas-container">
+                <div class="signature-line-guide"></div>
+                <div class="signature-text-guide">Złóż podpis elektroniczny powyżej linii</div>
+                <canvas id="signature-pad"></canvas>
+            </div>
+            <button type="button" class="clear-btn" id="clearSignature">Wyczyść podpis</button>
+        </div>
+
+        <div class="summary-box">
+            Wartość zamówienia: <span class="price-tag" id="totalPrice">0.00 €</span>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top: 20px;">Zatwierdź i wyślij zgłoszenie</button>
+    </form>
+</div>
+
+<button class="admin-toggle-btn" id="adminToggleBtn">Otwórz Strefę Administratora</button>
+
+<div class="container admin-container hidden" id="adminContainer">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 id="adminTitle" style="margin: 0; font-size: 22px;">Panel Administratora</h2>
+        <button id="logoutBtn" class="btn-danger hidden">Wyloguj się 🚪</button>
+    </div>
+    
+    <div id="adminLoginBox">
+        <label for="adminPassword">Podaj hasło dostępowe:</label>
+        <input type="password" id="adminPassword" placeholder="Wpisz hasło administratora...">
+        <button class="btn-primary" id="loginBtn" style="margin-top: 15px;">Autoryzuj dostęp</button>
+    </div>
+
+    <div id="adminPanel" class="hidden">
+        <div class="admin-grid-settings">
+            <div>
+                <h3>Stawki podstawowe</h3>
+                <label>Cena rozmowy telefonicznej (€ / min):</label>
+                <input type="number" id="priceCallInput" step="0.01" style="margin-bottom:15px;">
+                <label>Zmień główne hasło dostępu:</label>
+                <input type="password" id="newPassword" placeholder="Nowe hasło bezpieczeństwa" style="margin-bottom:15px;">
+                <button class="btn-primary" id="saveBasicSettingsBtn">Zapisz konfigurację</button>
+            </div>
+
+            <div>
+                <h3>Czasomierz usuwania logów</h3>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="number" id="cleanupValue" min="1" style="flex:1;">
+                    <select id="cleanupUnit" style="flex:1;">
+                        <option value="minutes">Minut</option>
+                        <option value="hours">Godzin</option>
+                        <option value="days">Dni</option>
+                    </select>
+                </div>
+                <label class="radio-label">
+                    <input type="checkbox" id="cleanupStatus"> Włącz automatyczne czyszczenie bazy danych
+                </label>
+                <button class="btn-primary" id="saveCleanupBtn" style="margin-top:15px;">Ustaw interwał usuwania</button>
+            </div>
+
+            <div>
+                <h3>Zarządzanie sprzętem (Cennik za 10 min)</h3>
+                <div style="display:flex; flex-direction: column; gap:10px; margin-bottom:15px;">
+                    <input type="text" id="newDeviceName" placeholder="Nazwa urządzenia...">
+                    <input type="number" id="newDevicePrice" step="0.01" placeholder="Cena za 10 minut (€)...">
+                    <button class="btn-primary" id="addDeviceBtn">Dodaj nowy sprzęt</button>
+                </div>
+                <div id="adminDevicesList"></div>
+            </div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 30px 0;">
+
+        <div class="orders-action-tile" id="triggerOrdersTile">
+            📦 Zobacz i filtruj spis rezerwacji klientów...
+        </div>
+
+        <div id="ordersDisplaySection" class="hidden" style="margin-top: 25px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>Spis urządzeń i status rezerwacji <span id="autoDeleteIndicator" style="font-size:11px; font-weight:normal; color:var(--text-secondary);"></span></h3>
+                <button class="clear-btn" id="hideOrdersBtn" style="font-size: 14px;">Zamknij podgląd</button>
+            </div>
+            
+            <h4 style="color: var(--primary);">1. Urządzenia aktualnie wypożyczone (W trakcie rezerwacji)</h4>
+            <div class="orders-grid" id="reservationsActiveList"></div>
+            
+            <h4 style="color: var(--danger);">2. Urządzenia do pilnego zwrotu (Czas minął!)</h4>
+            <div class="orders-grid" id="reservationsOverdueList"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    if (!localStorage.getItem('adminPassword')) localStorage.setItem('adminPassword', '7987');
+    if (!localStorage.getItem('priceCall')) localStorage.setItem('priceCall', '0.10');
+    if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'light');
+    if (!localStorage.getItem('cleanupSettings')) localStorage.setItem('cleanupSettings', JSON.stringify({ active: true, value: 30, unit: 'minutes' }));
+    
+    if (!localStorage.getItem('devicesList')) {
+        const defaultDevices = [
+            { id: '1', name: 'Tablet', price: 0.40 },
+            { id: '2', name: 'iPad', price: 0.60 },
+            { id: '3', name: 'Komputer', price: 1.50 },
+            { id: '4', name: 'Telefon', price: 2.00 }
+        ];
+        localStorage.setItem('devicesList', JSON.stringify(defaultDevices));
+    }
+
+    let reservations = JSON.parse(localStorage.getItem('reservations')) || [];
+    let devices = JSON.parse(localStorage.getItem('devicesList'));
+    let currentPriceCall = parseFloat(localStorage.getItem('priceCall'));
+    let cleanupSettings = JSON.parse(localStorage.getItem('cleanupSettings'));
+
+    const form = document.getElementById('orderForm');
+    const serviceCall = document.getElementById('serviceCall');
+    const serviceRent = document.getElementById('serviceRent');
+    const callSection = document.getElementById('callSection');
+    const rentSection = document.getElementById('rentSection');
+    const dynamicDeviceGrid = document.getElementById('dynamicDeviceGrid');
+    
+    const callDateInput = document.getElementById('callDate');
+    const callTimeInput = document.getElementById('callTime');
+    const rentDateInput = document.getElementById('rentDate');
+    const rentTimeInput = document.getElementById('rentTime');
+    
+    const callMinutesInput = document.getElementById('callMinutes');
+    const rentMinutesInput = document.getElementById('rentMinutes');
+    const totalPriceElement = document.getElementById('totalPrice');
+    const toast = document.getElementById('toast');
+    const themeSwitchBtn = document.getElementById('themeSwitchBtn');
+
+    const adminToggleBtn = document.getElementById('adminToggleBtn');
+    const adminContainer = document.getElementById('adminContainer');
+    const adminLoginBox = document.getElementById('adminLoginBox');
+    const adminPanel = document.getElementById('adminPanel');
+    const adminPasswordInput = document.getElementById('adminPassword');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    const triggerOrdersTile = document.getElementById('triggerOrdersTile');
+    const ordersDisplaySection = document.getElementById('ordersDisplaySection');
+    const hideOrdersBtn = document.getElementById('hideOrdersBtn');
+    
+    const reservationsActiveList = document.getElementById('reservationsActiveList');
+    const reservationsOverdueList = document.getElementById('reservationsOverdueList');
+    const adminDevicesList = document.getElementById('adminDevicesList');
+
+    let selectedDeviceObj = null;
+    let isAdminLoggedIn = false;
+
+    const dzis = new Date().toISOString().split('T')[0];
+    callDateInput.value = dzis;
+    rentDateInput.value = dzis;
+    
+    const terazGodzina = new Date().toTimeString().split(' ')[0].substring(0,5);
+    callTimeInput.value = terazGodzina;
+    rentTimeInput.value = terazGodzina;
+
+    const canvas = document.getElementById('signature-pad');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false, hasSigned = false;
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        themeSwitchBtn.textContent = theme === 'dark' ? '🌙' : '☀️';
+        ctx.strokeStyle = theme === 'dark' ? '#f5f5f7' : '#1d1d1f';
+    }
+    
+    themeSwitchBtn.addEventListener('click', () => {
+        let nTheme = localStorage.getItem('theme') === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', nTheme);
+        applyTheme(nTheme);
+    });
+
+    function getDeviceStatusForSelectedTime(deviceName) {
+        if (!rentDateInput.value || !rentTimeInput.value) return { isRented: false };
+
+        const targetStart = new Date(`${rentDateInput.value}T${rentTimeInput.value}`).getTime();
+        const durationMin = parseInt(rentMinutesInput.value) || 0;
+        const targetEnd = targetStart + (durationMin * 60 * 1000);
+
+        const konflikt = reservations.find(r => {
+            if (r.type !== 'Wynajem' || r.deviceName !== deviceName) return false;
+            return (targetStart < r.endTimeMills && targetEnd > r.startTimeMills);
+        });
+
+        if (konflikt) {
+            return {
+                isRented: true,
+                earliestReturn: new Date(konflikt.endTimeMills).toLocaleString('pl-PL', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})
+            };
+        }
+        return { isRented: false };
+    }
+
+    function renderDeviceGrid() {
+        dynamicDeviceGrid.innerHTML = '';
+        if (devices.length === 0) {
+            dynamicDeviceGrid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:var(--danger)">Brak dostępnego sprzętu.</p>';
+            return;
+        }
+
+        devices.forEach(device => {
+            const box = document.createElement('div');
+            box.className = 'device-box';
+            const status = getDeviceStatusForSelectedTime(device.name);
+
+            if (status.isRented) {
+                box.classList.add('wypozyczone-skreslone');
+                box.innerHTML = `
+                    <span class="dev-name">${device.name}</span>
+                    <span class="dev-price">Zajęte w tych godzinach</span>
+                    <span style="font-size:10px; display:block; margin-top:4px; font-weight:600;">Wolne od: ${status.earliestReturn}</span>
+                `;
+                if (selectedDeviceObj && selectedDeviceObj.id === device.id) {
+                    selectedDeviceObj = null;
+                    calculatePrice();
+                }
+            } else {
+                if (selectedDeviceObj && selectedDeviceObj.id === device.id) {
+                    box.classList.add('selected');
+                } else {
+                    box.classList.remove('selected');
+                }
+                
+                box.innerHTML = `
+                    <span class="dev-name">${device.name}</span>
+                    <span class="dev-price">${device.price.toFixed(2)} € / 10 min</span>
+                `;
+                
+                box.addEventListener('click', function() {
+                    const allBoxes = dynamicDeviceGrid.querySelectorAll('.device-box');
+                    allBoxes.forEach(b => b.classList.remove('selected'));
+                    
+                    box.classList.add('selected');
+                    selectedDeviceObj = device; 
+                    calculatePrice();
+                });
+            }
+            dynamicDeviceGrid.appendChild(box);
+        });
+    }
+
+    function toggleServices() {
+        if (serviceCall.checked) {
+            callSection.classList.remove('hidden');
+            rentSection.classList.add('hidden');
+            callDateInput.required = true;
+            callTimeInput.required = true;
+            rentDateInput.required = false;
+            rentTimeInput.required = false;
+        } else {
+            callSection.classList.add('hidden');
+            rentSection.classList.remove('hidden');
+            callDateInput.required = false;
+            callTimeInput.required = false;
+            rentDateInput.required = true;
+            rentTimeInput.required = true;
+            renderDeviceGrid();
+        }
+        calculatePrice();
+    }
+
+    serviceCall.addEventListener('change', toggleServices);
+    serviceRent.addEventListener('change', toggleServices);
+    
+    callMinutesInput.addEventListener('input', calculatePrice);
+    rentMinutesInput.addEventListener('input', () => { renderDeviceGrid(); calculatePrice(); });
+    rentDateInput.addEventListener('input', () => { renderDeviceGrid(); calculatePrice(); });
+    rentTimeInput.addEventListener('input', () => { renderDeviceGrid(); calculatePrice(); });
+
+    function updatePriceLabels() {
+        document.getElementById('labelCallPrice').textContent = `Rozmowa telefoniczna (${currentPriceCall.toFixed(2)} € / min)`;
+        calculatePrice();
+    }
+
+    function calculatePrice() {
+        let total = 0;
+        if (serviceCall.checked) {
+            total = (parseInt(callMinutesInput.value) || 0) * currentPriceCall;
+        } else if (serviceRent.checked && selectedDeviceObj) {
+            let totalMinutes = parseInt(rentMinutesInput.value) || 0;
+            total = Math.ceil(totalMinutes / 10) * selectedDeviceObj.price;
+        }
+        totalPriceElement.textContent = total.toFixed(2) + ' €';
+        return total;
+    }
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentNode.offsetWidth;
+        canvas.height = 150;
+        ctx.strokeStyle = localStorage.getItem('theme') === 'dark' ? '#f5f5f7' : '#1d1d1f';
+        ctx.lineWidth = 3; 
+        ctx.lineCap = 'round';
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 150);
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
+    }
+    canvas.addEventListener('mousedown', (e) => { isDrawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('mousemove', (e) => { if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasSigned = true; });
+    canvas.addEventListener('touchstart', (e) => { isDrawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault(); });
+    canvas.addEventListener('touchmove', (e) => { if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasSigned = true; e.preventDefault(); });
+    window.addEventListener('mouseup', () => isDrawing = false); window.addEventListener('touchend', () => isDrawing = false);
+    
+    document.getElementById('clearSignature').addEventListener('click', () => { 
+        ctx.clearRect(0,0,canvas.width,canvas.height); 
+        hasSigned = false; 
+    });
+
+    function showToast(msg, type = 'success') {
+        toast.textContent = msg; toast.className = `toast show ${type}`;
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!hasSigned) return showToast('Wymagany podpis klienta!', 'error');
+        if (serviceRent.checked && !selectedDeviceObj) return showToast('Zaznacz wolne urządzenie!', 'error');
+
+        const finalDate = serviceCall.checked ? callDateInput.value : rentDateInput.value;
+        const finalTime = serviceCall.checked ? callTimeInput.value : rentTimeInput.value;
+
+        const startMills = new Date(`${finalDate}T${finalTime}`).getTime();
+        let durationMinutes = serviceCall.checked ? (parseInt(callMinutesInput.value) || 0) : (parseInt(rentMinutesInput.value) || 0);
+        const endMills = startMills + (durationMinutes * 60 * 1000);
+
+        const savedSignature = canvas.toDataURL();
+
+        const newRes = {
+            id: Date.now(),
+            timestamp: Date.now(),
+            startTimeMills: startMills,
+            endTimeMills: endMills,
+            name: document.getElementById('fullName').value,
+            date: finalDate,
+            time: finalTime,
+            type: serviceCall.checked ? 'Rozmowa' : 'Wynajem',
+            deviceName: serviceRent.checked ? selectedDeviceObj.name : null,
+            details: serviceCall.checked ? `${callMinutesInput.value} min` : `${selectedDeviceObj.name} (${rentMinutesInput.value} min)`,
+            cost: calculatePrice().toFixed(2) + ' €',
+            signature: savedSignature
+        };
+
+        reservations.push(newRes);
+        localStorage.setItem('reservations', JSON.stringify(reservations));
+        showToast('Zgłoszenie dodane pomyślnie!');
+
+        form.reset();
+        callDateInput.value = dzis;
+        rentDateInput.value = dzis;
+        callTimeInput.value = terazGodzina;
+        rentTimeInput.value = terazGodzina;
+        
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        hasSigned = false; 
+        selectedDeviceObj = null;
+        toggleServices();
+        if (isAdminLoggedIn) renderReservations();
+    });
+
+    adminToggleBtn.addEventListener('click', () => {
+        adminContainer.classList.toggle('hidden');
+        adminToggleBtn.textContent = adminContainer.classList.contains('hidden') ? 'Otwórz Strefę Administratora' : 'Ukryj Strefę Administratora';
+    });
+
+    loginBtn.addEventListener('click', () => {
+        if (adminPasswordInput.value === localStorage.getItem('adminPassword')) {
+            isAdminLoggedIn = true;
+            adminLoginBox.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+            logoutBtn.classList.remove('hidden');
+            document.getElementById('adminTitle').textContent = 'Panel Zarządzania Urządzeniami 🔐';
+            
+            document.getElementById('priceCallInput').value = currentPriceCall;
+            document.getElementById('cleanupValue').value = cleanupSettings.value;
+            document.getElementById('cleanupUnit').value = cleanupSettings.unit;
+            document.getElementById('cleanupStatus').checked = cleanupSettings.active;
+
+            renderAdminDevices();
+            showToast('Dostęp przyznany.');
+        } else {
+            showToast('Niepoprawne hasło!', 'error');
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        isAdminLoggedIn = false;
+        adminPasswordInput.value = '';
+        adminPanel.classList.add('hidden');
+        ordersDisplaySection.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+        adminLoginBox.classList.remove('hidden');
+        document.getElementById('adminTitle').textContent = 'Panel Administratora';
+        showToast('Wylogowano.');
+    });
+
+    triggerOrdersTile.addEventListener('click', () => {
+        ordersDisplaySection.classList.remove('hidden');
+        renderReservations();
+    });
+
+    hideOrdersBtn.addEventListener('click', () => {
+        ordersDisplaySection.classList.add('hidden');
+    });
+
+    document.getElementById('saveBasicSettingsBtn').addEventListener('click', () => {
+        const callP = parseFloat(document.getElementById('priceCallInput').value);
+        const newPass = document.getElementById('newPassword').value.trim();
+
+        if(isNaN(callP)) return showToast('Wprowadź prawidłową stawkę!', 'error');
+        currentPriceCall = callP;
+        localStorage.setItem('priceCall', callP.toString());
+
+        if(newPass.length > 0) localStorage.setItem('adminPassword', newPass);
+        showToast('Zapisano dane systemowe.');
+        updatePriceLabels();
+    });
+
+    document.getElementById('saveCleanupBtn').addEventListener('click', () => {
+        cleanupSettings.value = parseInt(document.getElementById('cleanupValue').value) || 30;
+        cleanupSettings.unit = document.getElementById('cleanupUnit').value;
+        cleanupSettings.active = document.getElementById('cleanupStatus').checked;
+        localStorage.setItem('cleanupSettings', JSON.stringify(cleanupSettings));
+        showToast('Interwał czyszczenia zmieniony.');
+        checkTimersAndCleanup();
+    });
+
+    function renderAdminDevices() {
+        adminDevicesList.innerHTML = '';
+        devices.forEach((dev) => {
+            const div = document.createElement('div');
+            div.className = 'admin-list-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${dev.name}</strong> — 
+                    <span style="color: var(--primary); font-weight:600;">${dev.price.toFixed(2)} €</span> / 10 min
+                </div>
+                <div class="hidden" id="edit-box-${dev.id}" style="margin-top: 5px; display:flex; gap:5px;">
+                    <input type="number" step="0.01" value="${dev.price}" id="input-price-${dev.id}" style="padding:6px; font-size:13px;">
+                </div>
+                <div class="admin-list-controls">
+                    <button class="btn-secondary" id="btn-edit-${dev.id}">Edytuj stawkę</button>
+                    <button class="delete-btn" id="btn-del-${dev.id}">Usuń</button>
+                </div>
+            `;
+
+            const editBtn = div.querySelector(`#btn-edit-${dev.id}`);
+            const editBox = div.querySelector(`#edit-box-${dev.id}`);
+            
+            editBtn.addEventListener('click', () => {
+                if (editBox.classList.contains('hidden')) {
+                    editBox.classList.remove('hidden');
+                    editBtn.textContent = 'Zapisz';
+                } else {
+                    const newP = parseFloat(div.querySelector(`#input-price-${dev.id}`).value);
+                    if(!isNaN(newP) && newP >= 0) {
+                        dev.price = newP;
+                        localStorage.setItem('devicesList', JSON.stringify(devices));
+                        showToast('Stawka zaktualizowana!');
+                    }
+                    renderAdminDevices();
+                    renderDeviceGrid();
+                    calculatePrice();
+                }
+            });
+
+            div.querySelector(`#btn-del-${dev.id}`).addEventListener('click', () => {
+                devices = devices.filter(d => d.id !== dev.id);
+                localStorage.setItem('devicesList', JSON.stringify(devices));
+                renderAdminDevices();
+                renderDeviceGrid();
+                calculatePrice();
+                showToast('Urządzenie zostało usunięte.');
+            });
+
+            adminDevicesList.appendChild(div);
+        });
+    }
+
+    // KLUCZOWA POPRAWKA BEZPIECZNEGO GENEROWANIA OBRAZU PODPISU W CAŁOŚCI WYRENDEROWANYM ELEMENCIE DOM
+    function renderReservations() {
+        reservationsActiveList.innerHTML = '';
+        reservationsOverdueList.innerHTML = '';
+        
+        const teraz = Date.now();
+        let activeCount = 0;
+        let overdueCount = 0;
+
+        reservations.forEach(res => {
+            const card = document.createElement('div');
+            const czyMinalTermin = teraz > res.endTimeMills;
+            
+            let cardClass = res.type === 'Rozmowa' ? 'type-rozmowa' : 'type-wynajem';
+            let tagClass = res.type === 'Rozmowa' ? 'tag-rozmowa' : 'tag-wynajem';
+            let tagText = res.type;
+
+            if (res.type === 'Wynajem' && czyMinalTermin) {
+                cardClass = 'type-do-zwrotu';
+                tagClass = 'tag-do-zwrotu';
+                tagText = 'DO ODDANIA - CZAS MINĄŁ!';
+            }
+            
+            card.className = `order-card ${cardClass}`;
+            
+            // Kontener na obrazek (id: sig-container-...) zostaje stworzony pusty w HTML
+            card.innerHTML = `
+                <div class="order-card-header">
+                    <div class="order-card-title">${res.name}</div>
+                    <div class="order-card-tag ${tagClass}">${tagText}</div>
+                </div>
+                <div class="order-card-body">
+                    <p><strong>📅 Termin od:</strong> ${res.date} o godz. ${res.time}</p>
+                    <p><strong>⏰ Planowany koniec:</strong> ${new Date(res.endTimeMills).toLocaleTimeString('pl-PL', {hour: '2-digit', minute:'2-digit'})}</p>
+                    <p><strong>⚙️ Szczegóły:</strong> ${res.details}</p>
+                    <p style="margin-top: 10px; font-weight: 600; font-size: 12px; color: var(--text-secondary)">✍️ Podpis:</p>
+                    <div class="order-card-signature" id="sig-container-${res.id}">
+                        <span style="font-size:12px; color: var(--text-secondary);">Ładowanie podpisu...</span>
+                    </div>
+                </div>
+                <div class="order-card-footer">
+                    <div class="order-card-price">${res.cost}</div>
+                    <div class="action-zone"></div>
+                </div>
+            `;
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn';
+            delBtn.textContent = 'Zwróć / Zwolnij';
+            delBtn.addEventListener('click', function() {
+                reservations = reservations.filter(r => r.id !== res.id);
+                localStorage.setItem('reservations', JSON.stringify(reservations));
+                renderReservations();
+                renderDeviceGrid();
+                showToast('Sprzęt wrócił na stan magazynowy.');
+            });
+
+            card.querySelector('.action-zone').appendChild(delBtn);
+
+            // Wrzucamy kartę do struktury strony (DOM)
+            if (res.type === 'Wynajem' && czyMinalTermin) {
+                reservationsOverdueList.appendChild(card);
+                overdueCount++;
+            } else {
+                reservationsActiveList.appendChild(card);
+                activeCount++;
+            }
+
+            // DOPIERO TERAZ (gdy element istnieje) bezpiecznie tworzymy obiekt Image z pamięci bazy danych
+            const sigContainer = document.getElementById(`sig-container-${res.id}`);
+            if (sigContainer && res.signature) {
+                const img = new Image();
+                img.onload = function() {
+                    sigContainer.innerHTML = '';
+                    sigContainer.appendChild(img);
+                };
+                img.onerror = function() {
+                    sigContainer.innerHTML = '<span style="color:var(--danger); font-size:11px;">Błąd pliku podpisu</span>';
+                };
+                img.src = res.signature;
+                img.alt = "Podpis klienta";
+            }
+        });
+
+        if (activeCount === 0) {
+            reservationsActiveList.innerHTML = `<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary); padding: 15px 0;">Brak aktywnych pozycji.</p>`;
+        }
+        if (overdueCount === 0) {
+            reservationsOverdueList.innerHTML = `<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary); padding: 15px 0;">Wszystkie urządzenia zwracane są terminowo.</p>`;
+        }
+    }
+
+    function checkTimersAndCleanup() {
+        const teraz = Date.now();
+
+        if (cleanupSettings.active) {
+            let threshold = cleanupSettings.value * 60 * 1000;
+            if (cleanupSettings.unit === 'hours') threshold = cleanupSettings.value * 60 * 60 * 1000;
+            if (cleanupSettings.unit === 'days') threshold = cleanupSettings.value * 24 * 60 * 60 * 1000;
+            
+            const pierwotnaDlugosc = reservations.length;
+            reservations = reservations.filter(res => (teraz - res.timestamp) < threshold);
+            
+            if(reservations.length !== pierwotnaDlugosc) {
+                localStorage.setItem('reservations', JSON.stringify(reservations));
+                renderDeviceGrid();
+            }
+            document.getElementById('autoDeleteIndicator').textContent = `(Automatyczne usuwanie po: ${cleanupSettings.value} ${cleanupSettings.unit})`;
+        } else {
+            document.getElementById('autoDeleteIndicator').textContent = '(Czasomierz bazy nieaktywny)';
+        }
+    }
+
+    setInterval(() => {
+        checkTimersAndCleanup();
+        if (isAdminLoggedIn && !ordersDisplaySection.classList.contains('hidden')) {
+            renderReservations();
+        }
+    }, 4000);
+
+    applyTheme(localStorage.getItem('theme'));
+    toggleServices();
+    updatePriceLabels();
+    checkTimersAndCleanup();
+</script>
+</body>
+</html>
